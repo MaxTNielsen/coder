@@ -2,8 +2,8 @@
 	"versions": ["main"],
 	"routes": [
 		{
-			"title": "Home",
-			"description": "Landing Page",
+			"title": "What is Coder?",
+			"description": "Open-source platform for developer workspaces.",
 			"path": "./README.md",
 			"icon_path": "./images/icons/home.svg",
 			"children": [
