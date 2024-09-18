@@ -16,12 +16,14 @@ for organizations of various sizes and stages of cloud-native maturity.
 You can use:
 
 - Any Web IDE, such as
+
   - [code-server](https://github.com/coder/code-server)
   - [JetBrains Projector](https://github.com/JetBrains/projector-server)
   - [Jupyter](https://jupyter.org/)
   - And others
 
 - Your existing remote development environment:
+
   - [JetBrains Gateway](https://www.jetbrains.com/remote-development/gateway/)
   - [VS Code Remote](https://code.visualstudio.com/docs/remote/ssh-tutorial)
   - [Emacs](./ides/emacs-tramp)
@@ -33,26 +35,30 @@ You can use:
 Remote development offers several benefits for users and administrators, including:
 
 - **Increased speed**
+
   - Server-grade cloud hardware speeds up operations in software development, from
-  loading the IDE to compiling and building code, and running large workloads
-  such as those for monolith or microservice applications.
+    loading the IDE to compiling and building code, and running large workloads
+    such as those for monolith or microservice applications.
 
 - **Easier environment management**
+
   - Built-in infrastructure tools such as Terraform, nix, Docker, Dev Containers, and others make it easier to onboard developers with consistent environments.
 
 - **Increased security**
+
   - Centralize source code and other data onto private servers or cloud services instead of local developers' machines.
   - Manage users and groups with [SSO](https://coder.com/docs/admin/auth) and [Role-based access controlled (RBAC)](https://coder.com/docs/admin/rbac).
 
 - **Improved compatibility**
+
   - Remote workspaces can share infrastructure configurations with other
-  development, staging, and production environments, reducing configuration
-  drift.
+    development, staging, and production environments, reducing configuration
+    drift.
 
 - **Improved accessibility**
   - Connect to remote workspaces via browser-based IDEs or remote IDE
-  extensions to enable developers regardless of the device they use, whether
-  it's their main device, a lightweight laptop, Chromebook, or iPad.
+    extensions to enable developers regardless of the device they use, whether
+    it's their main device, a lightweight laptop, Chromebook, or iPad.
 
 Read more about why organizations and engineers are moving to remote
 development on [our blog](https://coder.com/blog), the
@@ -100,27 +106,31 @@ Visit the [templates documentation](./admin/templates/README.md) to learn more.
 ## What Coder is not
 
 - Coder is not an infrastructure as code (IaC) platform.
+
   - Terraform is the first IaC _provisioner_ in Coder, allowing Coder admins to
-  define Terraform resources as Coder workspaces.
+    define Terraform resources as Coder workspaces.
 
 - Coder is not a DevOps/CI platform.
+
   - Coder workspaces can be configured to follow best practices for
-  cloud-service-based workloads, but Coder is not responsible for how you
-  define or deploy the software you write.
+    cloud-service-based workloads, but Coder is not responsible for how you
+    define or deploy the software you write.
 
 - Coder is not an online IDE.
+
   - Coder supports common editors, such as VS Code, vim, and JetBrains,
-  all over HTTPS or SSH.
+    all over HTTPS or SSH.
 
 - Coder is not a collaboration platform.
+
   - You can use Git with your favorite Git platform and dedicated IDE
-  extensions for pull requests, code reviews, and pair programming.
+    extensions for pull requests, code reviews, and pair programming.
 
 - Coder is not a SaaS/fully-managed offering.
-  - Coder is a [self-hosted](https://en.wikipedia.org/wiki/Self-hosting_(web_services))
-  solution.
-  You must host Coder in a private data center or on a cloud service, such as
-  AWS, Azure, or GCP.
+  - Coder is a [self-hosted](<https://en.wikipedia.org/wiki/Self-hosting_(web_services)>)
+    solution.
+    You must host Coder in a private data center or on a cloud service, such as
+    AWS, Azure, or GCP.
 
 ## Using Coder v1?
 
