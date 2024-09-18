@@ -9,11 +9,6 @@ Coder is built on common development interfaces and infrastructure tools to
 make the process of provisioning and accessing remote workspaces approachable
 for organizations of various sizes and stages of cloud-native maturity.
 
-> **Using Coder v1?**
->
-> If you're a Coder v1 customer, view [the v1 documentation](https://coder.com/docs/v1)
-or [the v2 migration guide and FAQ](https://coder.com/docs/v1/guides/v2-faq).
-
 ## IDE support
 
 ![IDE icons](./images/ide-icons.svg)
@@ -126,6 +121,11 @@ Visit the [templates documentation](./admin/templates/README.md) to learn more.
   solution.
   You must host Coder in a private data center or on a cloud service, such as
   AWS, Azure, or GCP.
+
+## Using Coder v1?
+
+If you're a Coder v1 customer, view [the v1 documentation](https://coder.com/docs/v1)
+or [the v2 migration guide and FAQ](https://coder.com/docs/v1/guides/v2-faq).
 
 ## Up next
 
