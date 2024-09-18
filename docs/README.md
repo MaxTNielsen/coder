@@ -42,7 +42,7 @@ Remote development offers several benefits for users and administrators, includi
 
 - **Increased security**
   - Centralize source code and other data onto private servers or cloud services instead of local developers' machines.
-  - Provision and manage users with [SSO](https://coder.com/docs/admin/auth) and [Role-based access controlled (RBAC)](https://coder.com/docs/admin/rbac).
+  - Manage users and groups with [SSO](https://coder.com/docs/admin/auth) and [Role-based access controlled (RBAC)](https://coder.com/docs/admin/rbac).
 
 - **Improved compatibility**
   - Remote workspaces can share infrastructure configurations with other
@@ -79,7 +79,7 @@ Coder is free and open source under
 [GNU Affero General Public License v3.0](https://github.com/coder/coder/blob/main/LICENSE).
 All developer productivity features are included in the Open Source version of
 Coder.
-An [Enterprise license is available](https://coder.com/pricing) for enhanced
+A [Premium license is available](https://coder.com/pricing#compare-plans) for enhanced
 support options and custom deployments.
 
 ## How does Coder work
