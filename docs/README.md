@@ -21,7 +21,7 @@ or [the v2 migration guide and FAQ](https://coder.com/docs/v1/guides/v2-faq).
 You can use:
 
 - Any Web IDE, such as
-  - The built-in [VS Code code-server](https://github.com/coder/code-server)
+  - [code-server](https://github.com/coder/code-server)
   - [JetBrains Projector](https://github.com/JetBrains/projector-server)
   - [Jupyter](https://jupyter.org/)
   - And others
