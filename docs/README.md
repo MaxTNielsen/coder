@@ -26,7 +26,7 @@ You can use:
   - [VS Code Remote](https://code.visualstudio.com/docs/remote/ssh-tutorial)
   - [Emacs](./ides/emacs-tramp)
 
-- File sync such as [Mutagen](https://mutagen.io/)
+- A file sync such as [Mutagen](https://mutagen.io/)
 
 ## Why remote development
 
