@@ -11,7 +11,8 @@ August 18, 2024
 
 ---
 
-Follow the steps in this guide to install Coder locally or on a VPS, set up a workspace, and connect to it from VS Code.
+Follow the steps in this guide to install Coder locally or on a VPS, set up a
+workspace, and connect to it from VS Code.
 
 By the end of this guide, you'll have a remote development environment that you
 can connect to from any device anywhere, so you can work on the same files in a
@@ -35,15 +36,15 @@ persistent environment from your main device, a tablet, or your phone.
    - [Mac instructions](https://docs.docker.com/desktop/install/mac-install/)
 
 1. Set up the Docker daemon in rootless mode for your user to run Docker as a
-non-privileged user:
+   non-privileged user:
 
    ```shell
    dockerd-rootless-setuptool.sh install
    ```
 
-   Depending on your system's dependencies, you might need to run other
-   commands before you retry this step.
-   Read the output of this command for further instructions.
+   Depending on your system's dependencies, you might need to run other commands
+   before you retry this step. Read the output of this command for further
+   instructions.
 
 1. Assign your user to the Docker group:
 
@@ -58,26 +59,28 @@ non-privileged user:
    ```
 
    - For standalone binaries, system packages, or other alternate installation
-   methods, refer to the
-   [latest release on GitHub](https://github.com/coder/coder/releases/latest).
+     methods, refer to the
+     [latest release on GitHub](https://github.com/coder/coder/releases/latest).
 
 ## Windows
 
-> **Important:** If you plan to use the built-in PostgreSQL database,
-> ensure that the
+> **Important:** If you plan to use the built-in PostgreSQL database, ensure
+> that the
 > [Visual C++ Runtime](https://learn.microsoft.com/en-US/cpp/windows/latest-supported-vc-redist#latest-microsoft-visual-c-redistributable-version)
 > is installed.
 
 1. [Install Docker](https://docs.docker.com/desktop/install/windows-install/).
 
 1. Download the Coder Windows installer (`.msi`) or standalone binary (`.exe`)
-from the [GitHub repository assets](https://github.com/coder/coder/releases/latest).
+   from the
+   [GitHub repository assets](https://github.com/coder/coder/releases/latest).
 
-   ![Windows setup wizard](../images/install/windows-installer.png)_Windows setup wizard_
+   ![Windows setup wizard](../images/install/windows-installer.png)_Windows
+   setup wizard_
 
    - Alternatively, you can use the
-   [`winget`](https://learn.microsoft.com/en-us/windows/package-manager/winget/#use-winget)
-   package manager to install Coder:
+     [`winget`](https://learn.microsoft.com/en-us/windows/package-manager/winget/#use-winget)
+     package manager to install Coder:
 
      ```powershell
      winget install Coder.Coder
@@ -96,28 +99,32 @@ from the [GitHub repository assets](https://github.com/coder/coder/releases/late
 1. If you're running Coder locally, go to <http://0.0.0.0:3001/setup>.
 
    - If you get a browser warning similar to `Secure Site Not Available`, you
-   can ignore the warning and continue to the setup page.
+     can ignore the warning and continue to the setup page.
 
    If your Coder server is on a network or cloud device, locate the message in
-   your terminal that reads, `View the Web UI: https://<CUSTOM-STRING>.<TUNNEL>.try.coder.app`.
-   The server begins to stream logs immediately and you might have to scroll up to find it.
+   your terminal that reads,
+   `View the Web UI: https://<CUSTOM-STRING>.<TUNNEL>.try.coder.app`. The server
+   begins to stream logs immediately and you might have to scroll up to find it.
 
 1. On the **Welcome to Coder** page, enter the information to create an admin
-user, then select **Create account**.
+   user, then select **Create account**.
 
-   ![Welcome to Coder - Create admin user](../images/guides/quickstart/create-admin-user.png)_Welcome to Coder - Create admin user_
+   ![Welcome to Coder - Create admin user](../images/guides/quickstart/create-admin-user.png)_Welcome
+   to Coder - Create admin user_
 
 1. On the Workspaces page, select **Go to templates** to create a new template.
 
 1. For this guide, use a Docker container. Locate **Docker Containers** and
-select **Use template**.
+   select **Use template**.
 
 1. Give the template a **Name** that you'll recognize both in the Coder UI and
-in command-line calls.
+   in command-line calls.
 
-   The rest of the template details are optional, but will be helpful when you have more templates.
+   The rest of the template details are optional, but will be helpful when you
+   have more templates.
 
-   ![Create template](../images/guides/quickstart/create-template.png)_Create template_
+   ![Create template](../images/guides/quickstart/create-template.png)_Create
+   template_
 
 1. Select **Create template**.
 
@@ -127,31 +134,37 @@ in command-line calls.
 
 1. Coder starts your new workspace:
 
-   ![getting-started-workspace is running](../images/guides/quickstart/workspace-running-with-topbar.png)_getting-started-workspace is running_
+   ![getting-started-workspace is running](../images/guides/quickstart/workspace-running-with-topbar.png)_getting-started-workspace
+   is running_
 
-1. Select **VS Code Desktop** to install the Coder extension and connect to
-   your Coder workspace.
+1. Select **VS Code Desktop** to install the Coder extension and connect to your
+   Coder workspace.
 
    <details><summary>Connect via SSH in VSCodium</summary>
 
-   VSCodium doesn't use the Microsoft VS Code extension marketplace or application
-   calls.
-   Enable SSH connections to the Coder workspace Docker container and connect to
-   it from VSCodium with the **Remote - SSH** extension.
+   VSCodium doesn't use the Microsoft VS Code extension marketplace or
+   application calls. Enable SSH connections to the Coder workspace Docker
+   container and connect to it from VSCodium with the **Remote - SSH**
+   extension.
 
    1. In the workspace, select **Connect via SSH**.
 
-   1. Select the `ssh` command below **Connect to the agent** to copy the command.
+   1. Select the `ssh` command below **Connect to the agent** to copy the
+      command.
 
-   1. Open a terminal window on the Coder server (or SSH to it if it's a device on your network).
+   1. Open a terminal window on the Coder server (or SSH to it if it's a device
+      on your network).
 
-   1. Run the `ssh` command to connect to the agent. Replace `your-workspace-name` in this example:
+   1. Run the `ssh` command to connect to the agent. Replace
+      `your-workspace-name` in this example:
 
       ```bash
       ssh coder.your-workspace-name.main
       ```
 
-   1. Use the Web UI URL from [Configure Coder with a new workspace](#configure-coder-with-a-new-workspace) to log in and authenticate:
+   1. Use the Web UI URL from
+      [Configure Coder with a new workspace](#configure-coder-with-a-new-workspace)
+      to log in and authenticate:
 
       ```bash
       coder login https://<CUSTOM-STRING>.<TUNNEL>.try.coder.app
@@ -174,7 +187,8 @@ in command-line calls.
       Continue? (yes/no) yes
       ```
 
-   1. Install the [Remote - SSH extension](https://open-vsx.org/extension/jeanp413/open-remote-ssh).
+   1. Install the
+      [Remote - SSH extension](https://open-vsx.org/extension/jeanp413/open-remote-ssh).
 
    1. Select **Remote-SSH: Connect to host** from the command palette.
 
@@ -186,18 +200,21 @@ in command-line calls.
 
 ## Work on some code
 
-After VS Code loads the remote environment, you can select **Open Folder** to explore directories in the Docker container or work on something new.
+After VS Code loads the remote environment, you can select **Open Folder** to
+explore directories in the Docker container or work on something new.
 
 To clone an existing repository:
 
 1. Select **Clone Repository** and enter the repository URL.
 
-   For example, to clone the Coder repo, enter `https://github.com/coder/coder.git`.
+   For example, to clone the Coder repo, enter
+   `https://github.com/coder/coder.git`.
 
-   Learn more about how to find the repository URL in the [GitHub documentation](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository).
+   Learn more about how to find the repository URL in the
+   [GitHub documentation](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository).
 
-1. Choose the folder to which VS Code should clone the repo.
-It will be in its own directory within this folder.
+1. Choose the folder to which VS Code should clone the repo. It will be in its
+   own directory within this folder.
 
    Note that you cannot create a new parent directory in this step.
 
@@ -210,7 +227,8 @@ It will be in its own directory within this folder.
 Now that you have your own workspace, use the same template to set one up for a
 teammate.
 
-Go to **Templates** and select **Create Workspace** and continue from Step 7 in [Configure Coder with a new workspace](#configure-coder-with-a-new-workspace).
+Go to **Templates** and select **Create Workspace** and continue from Step 7 in
+[Configure Coder with a new workspace](#configure-coder-with-a-new-workspace).
 
 After that, you can try to:
 
@@ -232,15 +250,15 @@ After that, you can try to:
    ```
 
 1. Set up the Docker daemon in rootless mode for your user to run Docker as a
-non-privileged user:
+   non-privileged user:
 
    ```shell
    dockerd-rootless-setuptool.sh install
    ```
 
-   Depending on your system's dependencies, you might need to run other
-   commands before you retry this step.
-   Read the output of this command for further instructions.
+   Depending on your system's dependencies, you might need to run other commands
+   before you retry this step. Read the output of this command for further
+   instructions.
 
 1. Assign your user to the Docker group:
 
@@ -256,11 +274,11 @@ non-privileged user:
    ```
 
    - Ubuntu users might not see the group membership update. In that case, run
-   the following command or reboot the machine:
+     the following command or reboot the machine:
 
-      ```shell
-      newgrp docker
-      ```
+     ```shell
+     newgrp docker
+     ```
 
 ### Can't start Coder server: Address already in use
 
@@ -281,4 +299,4 @@ error: configure http(s): listen tcp 127.0.0.1:3000: bind: address already in us
    coder server
    ```
 
-1. 
+1.
