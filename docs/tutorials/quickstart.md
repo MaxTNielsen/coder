@@ -11,8 +11,7 @@ August 18, 2024
 
 ---
 
-Follow the steps in this guide to install Coder locally or on a device on your
-network, set up a workspace, and connect to it from VS Code.
+Follow the steps in this guide to install Coder locally or on a VPS, set up a workspace, and connect to it from VS Code.
 
 By the end of this guide, you'll have a remote development environment that you
 can connect to from any device anywhere, so you can work on the same files in a
