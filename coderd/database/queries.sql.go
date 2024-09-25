@@ -15067,6 +15067,75 @@ func (q *sqlQuerier) GetWorkspaces(ctx context.Context, arg GetWorkspacesParams)
 	return items, nil
 }
 
+const getWorkspacesAndAgents = `-- name: GetWorkspacesAndAgents :many
+SELECT
+	workspaces.id as workspace_id,
+	workspaces.name as workspace_name,
+	job_status,
+	transition,
+	array_agg(agent_id)::uuid[] as agent_ids
+FROM workspaces
+LEFT JOIN LATERAL (
+	SELECT
+		workspace_id,
+		job_id,
+		transition,
+		job_status
+	FROM workspace_builds
+	JOIN provisioner_jobs ON provisioner_jobs.id = workspace_builds.job_id
+	WHERE workspace_builds.workspace_id = workspaces.id
+	ORDER BY build_number DESC
+	LIMIT 1
+) latest_build ON true
+LEFT JOIN (
+	SELECT
+		workspace_agents.id as agent_id,
+		job_id
+	FROM workspace_resources
+	JOIN workspace_agents ON workspace_agents.resource_id = workspace_resources.id
+) resources ON resources.job_id = latest_build.job_id
+	-- Authorize Filter clause will be injected below in GetAuthorizedWorkspacesAndAgents
+	-- @authorize_filter
+GROUP BY workspaces.id, workspaces.name, latest_build.job_status, latest_build.job_id, latest_build.transition
+`
+
+type GetWorkspacesAndAgentsRow struct {
+	WorkspaceID   uuid.UUID            `db:"workspace_id" json:"workspace_id"`
+	WorkspaceName string               `db:"workspace_name" json:"workspace_name"`
+	JobStatus     ProvisionerJobStatus `db:"job_status" json:"job_status"`
+	Transition    WorkspaceTransition  `db:"transition" json:"transition"`
+	AgentIds      []uuid.UUID          `db:"agent_ids" json:"agent_ids"`
+}
+
+func (q *sqlQuerier) GetWorkspacesAndAgents(ctx context.Context) ([]GetWorkspacesAndAgentsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getWorkspacesAndAgents)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetWorkspacesAndAgentsRow
+	for rows.Next() {
+		var i GetWorkspacesAndAgentsRow
+		if err := rows.Scan(
+			&i.WorkspaceID,
+			&i.WorkspaceName,
+			&i.JobStatus,
+			&i.Transition,
+			pq.Array(&i.AgentIds),
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getWorkspacesEligibleForTransition = `-- name: GetWorkspacesEligibleForTransition :many
 SELECT
 	workspaces.id, workspaces.created_at, workspaces.updated_at, workspaces.owner_id, workspaces.organization_id, workspaces.template_id, workspaces.deleted, workspaces.name, workspaces.autostart_schedule, workspaces.ttl, workspaces.last_used_at, workspaces.dormant_at, workspaces.deleting_at, workspaces.automatic_updates, workspaces.favorite

@@ -612,6 +612,70 @@ func TestGetWorkspaceAgentUsageStatsAndLabels(t *testing.T) {
 	})
 }
 
+func TestGetWorkspaceAndAgents(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.SkipNow()
+	}
+
+	sqlDB := testSQLDB(t)
+	err := migrations.Up(sqlDB)
+	require.NoError(t, err)
+	db := database.New(sqlDB)
+
+	org := dbgen.Organization(t, db, database.Organization{})
+	user := dbgen.User(t, db, database.User{})
+	tpl := dbgen.Template(t, db, database.Template{
+		OrganizationID: org.ID,
+		CreatedBy:      user.ID,
+	})
+
+	pending := createTemplateVersion(t, db, tpl, tvArgs{
+		Status:          database.ProvisionerJobStatusPending,
+		CreateWorkspace: true,
+		CreateAgent:     true,
+	})
+	failed := createTemplateVersion(t, db, tpl, tvArgs{
+		Status:          database.ProvisionerJobStatusFailed,
+		CreateWorkspace: true,
+		CreateAgent:     true,
+	})
+	succeeded := createTemplateVersion(t, db, tpl, tvArgs{
+		Status:          database.ProvisionerJobStatusSucceeded,
+		CreateWorkspace: true,
+		CreateAgent:     true,
+	})
+	deleted := createTemplateVersion(t, db, tpl, tvArgs{
+		Status:              database.ProvisionerJobStatusSucceeded,
+		WorkspaceTransition: database.WorkspaceTransitionDelete,
+		CreateWorkspace:     true,
+		CreateAgent:         false,
+	})
+
+	ctx := testutil.Context(t, testutil.WaitLong)
+	rows, err := db.GetWorkspacesAndAgents(ctx)
+	require.NoError(t, err)
+
+	require.Len(t, rows, 4)
+	for _, row := range rows {
+		switch row.WorkspaceID {
+		case pending.ID:
+			require.Len(t, row.AgentIds, 1)
+			require.Equal(t, database.ProvisionerJobStatusPending, row.JobStatus)
+		case failed.ID:
+			require.Len(t, row.AgentIds, 1)
+			require.Equal(t, database.ProvisionerJobStatusFailed, row.JobStatus)
+		case succeeded.ID:
+			require.Len(t, row.AgentIds, 1)
+			require.Equal(t, database.ProvisionerJobStatusSucceeded, row.JobStatus)
+		case deleted.ID:
+			require.Len(t, row.AgentIds, 0)
+			require.Equal(t, database.ProvisionerJobStatusSucceeded, row.JobStatus)
+			require.Equal(t, database.WorkspaceTransitionDelete, row.Transition)
+		}
+	}
+}
+
 func TestInsertWorkspaceAgentLogs(t *testing.T) {
 	t.Parallel()
 	if testing.Short() {
@@ -1537,6 +1601,7 @@ type tvArgs struct {
 	Status database.ProvisionerJobStatus
 	// CreateWorkspace is true if we should create a workspace for the template version
 	CreateWorkspace     bool
+	CreateAgent         bool
 	WorkspaceTransition database.WorkspaceTransition
 }
 
@@ -1607,11 +1672,15 @@ func createTemplateVersion(t testing.TB, db database.Store, tpl database.Templat
 		if args.WorkspaceTransition != "" {
 			trans = args.WorkspaceTransition
 		}
+
 		buildJob := dbgen.ProvisionerJob(t, db, nil, database.ProvisionerJob{
 			Type:           database.ProvisionerJobTypeWorkspaceBuild,
 			CompletedAt:    now,
 			InitiatorID:    tpl.CreatedBy,
 			OrganizationID: tpl.OrganizationID,
+		})
+		resource := dbgen.WorkspaceResource(t, db, database.WorkspaceResource{
+			JobID: buildJob.ID,
 		})
 		dbgen.WorkspaceBuild(t, db, database.WorkspaceBuild{
 			WorkspaceID:       wrk.ID,
@@ -1621,6 +1690,11 @@ func createTemplateVersion(t testing.TB, db database.Store, tpl database.Templat
 			InitiatorID:       tpl.CreatedBy,
 			JobID:             buildJob.ID,
 		})
+		if args.CreateAgent {
+			dbgen.WorkspaceAgent(t, db, database.WorkspaceAgent{
+				ResourceID: resource.ID,
+			})
+		}
 	}
 	return version
 }

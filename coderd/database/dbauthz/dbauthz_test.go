@@ -1484,6 +1484,14 @@ func (s *MethodTestSuite) TestWorkspace() {
 		// No asserts here because SQLFilter.
 		check.Args(database.GetWorkspacesParams{}, emptyPreparedAuthorized{}).Asserts()
 	}))
+	s.Run("GetWorkspacesAndAgents", s.Subtest(func(db database.Store, check *expects) {
+		// No asserts here because SQLFilter.
+		check.Args().Asserts()
+	}))
+	s.Run("GetAuthorizedWorkspacesAndAgents", s.Subtest(func(db database.Store, check *expects) {
+		// No asserts here because SQLFilter.
+		check.Args(emptyPreparedAuthorized{}).Asserts()
+	}))
 	s.Run("GetLatestWorkspaceBuildByWorkspaceID", s.Subtest(func(db database.Store, check *expects) {
 		ws := dbgen.Workspace(s.T(), db, database.Workspace{})
 		b := dbgen.WorkspaceBuild(s.T(), db, database.WorkspaceBuild{WorkspaceID: ws.ID})

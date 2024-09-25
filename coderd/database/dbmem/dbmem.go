@@ -6714,6 +6714,11 @@ func (q *FakeQuerier) GetWorkspaces(ctx context.Context, arg database.GetWorkspa
 	return workspaceRows, err
 }
 
+func (q *FakeQuerier) GetWorkspacesAndAgents(ctx context.Context) ([]database.GetWorkspacesAndAgentsRow, error) {
+	// No auth filter.
+	return q.GetAuthorizedWorkspacesAndAgents(ctx, nil)
+}
+
 func (q *FakeQuerier) GetWorkspacesEligibleForTransition(ctx context.Context, now time.Time) ([]database.Workspace, error) {
 	q.mutex.RLock()
 	defer q.mutex.RUnlock()
@@ -11078,6 +11083,63 @@ func (q *FakeQuerier) GetAuthorizedWorkspaces(ctx context.Context, arg database.
 	}
 
 	return q.convertToWorkspaceRowsNoLock(ctx, workspaces, int64(beforePageCount), arg.WithSummary), nil
+}
+
+func (q *FakeQuerier) GetAuthorizedWorkspacesAndAgents(ctx context.Context, prepared rbac.PreparedAuthorized) ([]database.GetWorkspacesAndAgentsRow, error) {
+	q.mutex.RLock()
+	defer q.mutex.RUnlock()
+
+	if prepared != nil {
+		// Call this to match the same function calls as the SQL implementation.
+		_, err := prepared.CompileToSQL(ctx, rbac.ConfigWithoutACL())
+		if err != nil {
+			return nil, err
+		}
+	}
+	workspaces := make([]database.Workspace, 0)
+	for _, workspace := range q.workspaces {
+		if prepared != nil && prepared.Authorize(ctx, workspace.RBACObject()) == nil {
+			workspaces = append(workspaces, workspace)
+		}
+	}
+
+	out := make([]database.GetWorkspacesAndAgentsRow, 0, len(workspaces))
+	for _, w := range workspaces {
+		// psql constraints ensure all these exist
+		build, err := q.getLatestWorkspaceBuildByWorkspaceIDNoLock(ctx, w.ID)
+		if err != nil {
+			return nil, xerrors.Errorf("get latest build: %w", err)
+		}
+
+		job, err := q.getProvisionerJobByIDNoLock(ctx, build.JobID)
+		if err != nil {
+			return nil, xerrors.Errorf("get provisioner job: %w", err)
+		}
+
+		resource, err := q.getWorkspaceResourcesByJobIDNoLock(ctx, job.ID)
+		if err != nil || len(resource) == 0 {
+			return nil, xerrors.Errorf("get workspace resources: %w", err)
+		}
+
+		agents, err := q.getWorkspaceAgentsByResourceIDsNoLock(ctx, []uuid.UUID{resource[0].ID})
+		if err != nil {
+			return nil, xerrors.Errorf("get workspace agents: %w", err)
+		}
+		agentIDs := make([]uuid.UUID, 0, len(agents))
+		for _, a := range agents {
+			agentIDs = append(agentIDs, a.ID)
+		}
+
+		out = append(out, database.GetWorkspacesAndAgentsRow{
+			WorkspaceID:   w.ID,
+			WorkspaceName: w.Name,
+			JobStatus:     job.JobStatus,
+			Transition:    build.Transition,
+			AgentIds:      agentIDs,
+		})
+	}
+
+	return out, nil
 }
 
 func (q *FakeQuerier) GetAuthorizedUsers(ctx context.Context, arg database.GetUsersParams, prepared rbac.PreparedAuthorized) ([]database.GetUsersRow, error) {

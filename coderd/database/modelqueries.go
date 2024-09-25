@@ -221,6 +221,7 @@ func (q *sqlQuerier) GetTemplateGroupRoles(ctx context.Context, id uuid.UUID) ([
 
 type workspaceQuerier interface {
 	GetAuthorizedWorkspaces(ctx context.Context, arg GetWorkspacesParams, prepared rbac.PreparedAuthorized) ([]GetWorkspacesRow, error)
+	GetAuthorizedWorkspacesAndAgents(ctx context.Context, prepared rbac.PreparedAuthorized) ([]GetWorkspacesAndAgentsRow, error)
 }
 
 // GetAuthorizedWorkspaces returns all workspaces that the user is authorized to access.
@@ -298,6 +299,45 @@ func (q *sqlQuerier) GetAuthorizedWorkspaces(ctx context.Context, arg GetWorkspa
 			&i.LatestBuildTransition,
 			&i.LatestBuildStatus,
 			&i.Count,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func (q *sqlQuerier) GetAuthorizedWorkspacesAndAgents(ctx context.Context, prepared rbac.PreparedAuthorized) ([]GetWorkspacesAndAgentsRow, error) {
+	authorizedFilter, err := prepared.CompileToSQL(ctx, rbac.ConfigWorkspaces())
+	if err != nil {
+		return nil, xerrors.Errorf("compile authorized filter: %w", err)
+	}
+	filtered, err := insertAuthorizedFilter(getWorkspacesAndAgents, fmt.Sprintf(" WHERE %s", authorizedFilter))
+	if err != nil {
+		return nil, xerrors.Errorf("insert authorized filter: %w", err)
+	}
+
+	query := fmt.Sprintf("-- name: GetAuthorizedWorkspaces :many\n%s", filtered)
+	rows, err := q.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetWorkspacesAndAgentsRow
+	for rows.Next() {
+		var i GetWorkspacesAndAgentsRow
+		if err := rows.Scan(
+			&i.WorkspaceID,
+			&i.WorkspaceName,
+			&i.JobStatus,
+			&i.Transition,
+			pq.Array(&i.AgentIds),
 		); err != nil {
 			return nil, err
 		}
