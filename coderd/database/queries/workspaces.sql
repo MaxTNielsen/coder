@@ -694,7 +694,7 @@ SELECT
 	workspaces.name as workspace_name,
 	job_status,
 	transition,
-	array_agg(agent_id)::uuid[] as agent_ids
+	(array_agg(agent_id) FILTER (WHERE agent_id IS NOT NULL))::uuid[] as agent_ids
 FROM workspaces
 LEFT JOIN LATERAL (
 	SELECT

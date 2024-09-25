@@ -11105,7 +11105,7 @@ func (q *FakeQuerier) GetAuthorizedWorkspacesAndAgents(ctx context.Context, prep
 
 	out := make([]database.GetWorkspacesAndAgentsRow, 0, len(workspaces))
 	for _, w := range workspaces {
-		// psql constraints ensure all these exist
+		// these always exist
 		build, err := q.getLatestWorkspaceBuildByWorkspaceIDNoLock(ctx, w.ID)
 		if err != nil {
 			return nil, xerrors.Errorf("get latest build: %w", err)
@@ -11116,18 +11116,19 @@ func (q *FakeQuerier) GetAuthorizedWorkspacesAndAgents(ctx context.Context, prep
 			return nil, xerrors.Errorf("get provisioner job: %w", err)
 		}
 
-		resource, err := q.getWorkspaceResourcesByJobIDNoLock(ctx, job.ID)
-		if err != nil || len(resource) == 0 {
+		agentIDs := make([]uuid.UUID, 0)
+		resources, err := q.getWorkspaceResourcesByJobIDNoLock(ctx, job.ID)
+		if err != nil {
 			return nil, xerrors.Errorf("get workspace resources: %w", err)
 		}
-
-		agents, err := q.getWorkspaceAgentsByResourceIDsNoLock(ctx, []uuid.UUID{resource[0].ID})
-		if err != nil {
-			return nil, xerrors.Errorf("get workspace agents: %w", err)
-		}
-		agentIDs := make([]uuid.UUID, 0, len(agents))
-		for _, a := range agents {
-			agentIDs = append(agentIDs, a.ID)
+		if len(resources) > 0 {
+			agents, err := q.getWorkspaceAgentsByResourceIDsNoLock(ctx, []uuid.UUID{resources[0].ID})
+			if err != nil {
+				return nil, xerrors.Errorf("get workspace agents: %w", err)
+			}
+			for _, a := range agents {
+				agentIDs = append(agentIDs, a.ID)
+			}
 		}
 
 		out = append(out, database.GetWorkspacesAndAgentsRow{

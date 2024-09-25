@@ -30,7 +30,6 @@ import (
 	"github.com/coder/coder/v2/coderd/database/dbgen"
 	"github.com/coder/coder/v2/coderd/database/dbtestutil"
 	"github.com/coder/coder/v2/coderd/database/dbtime"
-	"github.com/coder/coder/v2/coderd/httpmw"
 	"github.com/coder/coder/v2/coderd/notifications"
 	"github.com/coder/coder/v2/coderd/rbac"
 	"github.com/coder/coder/v2/coderd/rbac/policy"
@@ -3722,51 +3721,4 @@ func TestWorkspaceTimings(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestGetAuthorizedWorkspacesAndAgents(t *testing.T) {
-	t.Parallel()
-
-	ownerClient, _, api := coderdtest.NewWithAPI(t, &coderdtest.Options{
-		IncludeProvisionerDaemon: true,
-	})
-	owner := coderdtest.CreateFirstUser(t, ownerClient)
-	_, user := coderdtest.CreateAnotherUser(t, ownerClient, owner.OrganizationID)
-	authToken := uuid.NewString()
-	version := coderdtest.CreateTemplateVersion(t, ownerClient, owner.OrganizationID, &echo.Responses{
-		Parse:          echo.ParseComplete,
-		ProvisionPlan:  echo.PlanComplete,
-		ProvisionApply: echo.ProvisionApplyWithAgent(authToken),
-	})
-	coderdtest.AwaitTemplateVersionJobCompleted(t, ownerClient, version.ID)
-	template := coderdtest.CreateTemplate(t, ownerClient, owner.OrganizationID, version.ID)
-	workspace := coderdtest.CreateWorkspace(t, ownerClient, template.ID)
-	coderdtest.AwaitWorkspaceBuildJobCompleted(t, ownerClient, workspace.LatestBuild.ID)
-	_ = agenttest.New(t, ownerClient.URL, authToken)
-	_ = coderdtest.NewWorkspaceAgentWaiter(t, ownerClient, workspace.ID).Wait()
-
-	ctx, cancel := context.WithTimeout(context.Background(), testutil.WaitLong)
-	defer cancel()
-
-	ownerSubject, _, err := httpmw.UserRBACSubject(ctx, api.Database, owner.UserID, rbac.ExpandableScope(rbac.ScopeAll))
-	require.NoError(t, err)
-	preparedOwner, err := api.Authorizer.Prepare(ctx, ownerSubject, policy.ActionRead, rbac.ResourceWorkspace.Type)
-	require.NoError(t, err)
-
-	ownerCtx := dbauthz.As(ctx, ownerSubject)
-	ownerRows, err := api.Database.GetAuthorizedWorkspacesAndAgents(ownerCtx, preparedOwner)
-	require.NoError(t, err)
-	require.Len(t, ownerRows, 1)
-	require.Equal(t, workspace.ID, ownerRows[0].WorkspaceID)
-	require.Len(t, ownerRows[0].AgentIds, 1)
-
-	userSubject, _, err := httpmw.UserRBACSubject(ctx, api.Database, user.ID, rbac.ExpandableScope(rbac.ScopeAll))
-	require.NoError(t, err)
-	preparedUser, err := api.Authorizer.Prepare(ctx, userSubject, policy.ActionRead, rbac.ResourceWorkspace.Type)
-	require.NoError(t, err)
-
-	userCtx := dbauthz.As(ctx, userSubject)
-	userRows, err := api.Database.GetAuthorizedWorkspacesAndAgents(userCtx, preparedUser)
-	require.NoError(t, err)
-	require.Len(t, userRows, 0)
 }

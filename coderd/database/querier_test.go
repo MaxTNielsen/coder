@@ -24,7 +24,9 @@ import (
 	"github.com/coder/coder/v2/coderd/database/dbtestutil"
 	"github.com/coder/coder/v2/coderd/database/dbtime"
 	"github.com/coder/coder/v2/coderd/database/migrations"
+	"github.com/coder/coder/v2/coderd/httpmw"
 	"github.com/coder/coder/v2/coderd/rbac"
+	"github.com/coder/coder/v2/coderd/rbac/policy"
 	"github.com/coder/coder/v2/testutil"
 )
 
@@ -612,70 +614,98 @@ func TestGetWorkspaceAgentUsageStatsAndLabels(t *testing.T) {
 	})
 }
 
-func TestGetWorkspacesAndAgents(t *testing.T) {
+func TestGetAuthorizedWorkspacesAndAgents(t *testing.T) {
 	t.Parallel()
 	if testing.Short() {
 		t.SkipNow()
 	}
 
+	ctx := testutil.Context(t, testutil.WaitLong)
 	sqlDB := testSQLDB(t)
 	err := migrations.Up(sqlDB)
 	require.NoError(t, err)
 	db := database.New(sqlDB)
 
 	org := dbgen.Organization(t, db, database.Organization{})
+	owner := dbgen.User(t, db, database.User{
+		RBACRoles: []string{rbac.RoleOwner().String()},
+	})
 	user := dbgen.User(t, db, database.User{})
 	tpl := dbgen.Template(t, db, database.Template{
 		OrganizationID: org.ID,
-		CreatedBy:      user.ID,
+		CreatedBy:      owner.ID,
 	})
 
-	pending := createTemplateVersion(t, db, tpl, tvArgs{
+	pendingID := uuid.New()
+	createTemplateVersion(t, db, tpl, tvArgs{
 		Status:          database.ProvisionerJobStatusPending,
 		CreateWorkspace: true,
+		WorkspaceID:     pendingID,
 		CreateAgent:     true,
 	})
-	failed := createTemplateVersion(t, db, tpl, tvArgs{
+	failedID := uuid.New()
+	createTemplateVersion(t, db, tpl, tvArgs{
 		Status:          database.ProvisionerJobStatusFailed,
 		CreateWorkspace: true,
 		CreateAgent:     true,
+		WorkspaceID:     failedID,
 	})
-	succeeded := createTemplateVersion(t, db, tpl, tvArgs{
+	succeededID := uuid.New()
+	createTemplateVersion(t, db, tpl, tvArgs{
 		Status:              database.ProvisionerJobStatusSucceeded,
 		WorkspaceTransition: database.WorkspaceTransitionStart,
 		CreateWorkspace:     true,
+		WorkspaceID:         succeededID,
 		CreateAgent:         true,
 		ExtraAgents:         1,
 		ExtraBuilds:         2,
 	})
-	deleted := createTemplateVersion(t, db, tpl, tvArgs{
+	deletedID := uuid.New()
+	createTemplateVersion(t, db, tpl, tvArgs{
 		Status:              database.ProvisionerJobStatusSucceeded,
 		WorkspaceTransition: database.WorkspaceTransitionDelete,
 		CreateWorkspace:     true,
+		WorkspaceID:         deletedID,
 		CreateAgent:         false,
 	})
 
-	ctx := testutil.Context(t, testutil.WaitLong)
-	rows, err := db.GetWorkspacesAndAgents(ctx)
-	require.NoError(t, err)
+	authorizer := rbac.NewStrictCachingAuthorizer(prometheus.NewRegistry())
 
-	require.Len(t, rows, 4)
-	for _, row := range rows {
+	userSubject, _, err := httpmw.UserRBACSubject(ctx, db, user.ID, rbac.ExpandableScope(rbac.ScopeAll))
+	require.NoError(t, err)
+	preparedUser, err := authorizer.Prepare(ctx, userSubject, policy.ActionRead, rbac.ResourceWorkspace.Type)
+	require.NoError(t, err)
+	userCtx := dbauthz.As(ctx, userSubject)
+	userRows, err := db.GetAuthorizedWorkspacesAndAgents(userCtx, preparedUser)
+	require.NoError(t, err)
+	require.Len(t, userRows, 0)
+
+	ownerSubject, _, err := httpmw.UserRBACSubject(ctx, db, owner.ID, rbac.ExpandableScope(rbac.ScopeAll))
+	require.NoError(t, err)
+	preparedOwner, err := authorizer.Prepare(ctx, ownerSubject, policy.ActionRead, rbac.ResourceWorkspace.Type)
+	require.NoError(t, err)
+	ownerCtx := dbauthz.As(ctx, ownerSubject)
+	ownerRows, err := db.GetAuthorizedWorkspacesAndAgents(ownerCtx, preparedOwner)
+	require.NoError(t, err)
+	require.Len(t, ownerRows, 4)
+	for _, row := range ownerRows {
 		switch row.WorkspaceID {
-		case pending.ID:
+		case pendingID:
 			require.Len(t, row.AgentIds, 1)
 			require.Equal(t, database.ProvisionerJobStatusPending, row.JobStatus)
-		case failed.ID:
+		case failedID:
 			require.Len(t, row.AgentIds, 1)
 			require.Equal(t, database.ProvisionerJobStatusFailed, row.JobStatus)
-		case succeeded.ID:
+		case succeededID:
 			require.Len(t, row.AgentIds, 2)
 			require.Equal(t, database.ProvisionerJobStatusSucceeded, row.JobStatus)
 			require.Equal(t, database.WorkspaceTransitionStart, row.Transition)
-		case deleted.ID:
+		case deletedID:
 			require.Len(t, row.AgentIds, 0)
 			require.Equal(t, database.ProvisionerJobStatusSucceeded, row.JobStatus)
 			require.Equal(t, database.WorkspaceTransitionDelete, row.Transition)
+		default:
+			t.Fatalf("unexpected workspace ID: %s", row.WorkspaceID)
 		}
 	}
 }
@@ -1605,6 +1635,7 @@ type tvArgs struct {
 	Status database.ProvisionerJobStatus
 	// CreateWorkspace is true if we should create a workspace for the template version
 	CreateWorkspace     bool
+	WorkspaceID         uuid.UUID
 	CreateAgent         bool
 	WorkspaceTransition database.WorkspaceTransition
 	ExtraAgents         int
@@ -1625,49 +1656,18 @@ func createTemplateVersion(t testing.TB, db database.Store, tpl database.Templat
 		CreatedBy:      tpl.CreatedBy,
 	})
 
-	earlier := sql.NullTime{
-		Time:  dbtime.Now().Add(time.Second * -30),
-		Valid: true,
-	}
-	now := sql.NullTime{
-		Time:  dbtime.Now(),
-		Valid: true,
-	}
-	j := database.ProvisionerJob{
+	latestJob := database.ProvisionerJob{
 		ID:             version.JobID,
-		CreatedAt:      earlier.Time,
-		UpdatedAt:      earlier.Time,
 		Error:          sql.NullString{},
 		OrganizationID: tpl.OrganizationID,
 		InitiatorID:    tpl.CreatedBy,
 		Type:           database.ProvisionerJobTypeTemplateVersionImport,
 	}
-
-	switch args.Status {
-	case database.ProvisionerJobStatusRunning:
-		j.StartedAt = earlier
-	case database.ProvisionerJobStatusPending:
-	case database.ProvisionerJobStatusFailed:
-		j.StartedAt = earlier
-		j.CompletedAt = now
-		j.Error = sql.NullString{
-			String: "failed",
-			Valid:  true,
-		}
-		j.ErrorCode = sql.NullString{
-			String: "failed",
-			Valid:  true,
-		}
-	case database.ProvisionerJobStatusSucceeded:
-		j.StartedAt = earlier
-		j.CompletedAt = now
-	default:
-		t.Fatalf("invalid status: %s", args.Status)
-	}
-
-	dbgen.ProvisionerJob(t, db, nil, j)
+	setJobStatus(t, args.Status, &latestJob)
+	dbgen.ProvisionerJob(t, db, nil, latestJob)
 	if args.CreateWorkspace {
 		wrk := dbgen.Workspace(t, db, database.Workspace{
+			ID:             args.WorkspaceID,
 			CreatedAt:      time.Time{},
 			UpdatedAt:      time.Time{},
 			OwnerID:        tpl.CreatedBy,
@@ -1678,13 +1678,13 @@ func createTemplateVersion(t testing.TB, db database.Store, tpl database.Templat
 		if args.WorkspaceTransition != "" {
 			trans = args.WorkspaceTransition
 		}
-
-		latestJob := dbgen.ProvisionerJob(t, db, nil, database.ProvisionerJob{
+		latestJob = database.ProvisionerJob{
 			Type:           database.ProvisionerJobTypeWorkspaceBuild,
-			CompletedAt:    now,
 			InitiatorID:    tpl.CreatedBy,
 			OrganizationID: tpl.OrganizationID,
-		})
+		}
+		setJobStatus(t, args.Status, &latestJob)
+		latestJob = dbgen.ProvisionerJob(t, db, nil, latestJob)
 		latestResource := dbgen.WorkspaceResource(t, db, database.WorkspaceResource{
 			JobID: latestJob.ID,
 		})
@@ -1697,12 +1697,13 @@ func createTemplateVersion(t testing.TB, db database.Store, tpl database.Templat
 			JobID:             latestJob.ID,
 		})
 		for i := 0; i < args.ExtraBuilds; i++ {
-			latestJob = dbgen.ProvisionerJob(t, db, nil, database.ProvisionerJob{
+			latestJob = database.ProvisionerJob{
 				Type:           database.ProvisionerJobTypeWorkspaceBuild,
-				CompletedAt:    now,
 				InitiatorID:    tpl.CreatedBy,
 				OrganizationID: tpl.OrganizationID,
-			})
+			}
+			setJobStatus(t, args.Status, &latestJob)
+			latestJob = dbgen.ProvisionerJob(t, db, nil, latestJob)
 			latestResource = dbgen.WorkspaceResource(t, db, database.WorkspaceResource{
 				JobID: latestJob.ID,
 			})
@@ -1728,6 +1729,40 @@ func createTemplateVersion(t testing.TB, db database.Store, tpl database.Templat
 		}
 	}
 	return version
+}
+
+func setJobStatus(t testing.TB, status database.ProvisionerJobStatus, j *database.ProvisionerJob) {
+	t.Helper()
+
+	earlier := sql.NullTime{
+		Time:  dbtime.Now().Add(time.Second * -30),
+		Valid: true,
+	}
+	now := sql.NullTime{
+		Time:  dbtime.Now(),
+		Valid: true,
+	}
+	switch status {
+	case database.ProvisionerJobStatusRunning:
+		j.StartedAt = earlier
+	case database.ProvisionerJobStatusPending:
+	case database.ProvisionerJobStatusFailed:
+		j.StartedAt = earlier
+		j.CompletedAt = now
+		j.Error = sql.NullString{
+			String: "failed",
+			Valid:  true,
+		}
+		j.ErrorCode = sql.NullString{
+			String: "failed",
+			Valid:  true,
+		}
+	case database.ProvisionerJobStatusSucceeded:
+		j.StartedAt = earlier
+		j.CompletedAt = now
+	default:
+		t.Fatalf("invalid status: %s", status)
+	}
 }
 
 func TestArchiveVersions(t *testing.T) {
