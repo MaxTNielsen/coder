@@ -612,7 +612,7 @@ func TestGetWorkspaceAgentUsageStatsAndLabels(t *testing.T) {
 	})
 }
 
-func TestGetWorkspaceAndAgents(t *testing.T) {
+func TestGetWorkspacesAndAgents(t *testing.T) {
 	t.Parallel()
 	if testing.Short() {
 		t.SkipNow()
@@ -641,9 +641,12 @@ func TestGetWorkspaceAndAgents(t *testing.T) {
 		CreateAgent:     true,
 	})
 	succeeded := createTemplateVersion(t, db, tpl, tvArgs{
-		Status:          database.ProvisionerJobStatusSucceeded,
-		CreateWorkspace: true,
-		CreateAgent:     true,
+		Status:              database.ProvisionerJobStatusSucceeded,
+		WorkspaceTransition: database.WorkspaceTransitionStart,
+		CreateWorkspace:     true,
+		CreateAgent:         true,
+		ExtraAgents:         1,
+		ExtraBuilds:         2,
 	})
 	deleted := createTemplateVersion(t, db, tpl, tvArgs{
 		Status:              database.ProvisionerJobStatusSucceeded,
@@ -666,8 +669,9 @@ func TestGetWorkspaceAndAgents(t *testing.T) {
 			require.Len(t, row.AgentIds, 1)
 			require.Equal(t, database.ProvisionerJobStatusFailed, row.JobStatus)
 		case succeeded.ID:
-			require.Len(t, row.AgentIds, 1)
+			require.Len(t, row.AgentIds, 2)
 			require.Equal(t, database.ProvisionerJobStatusSucceeded, row.JobStatus)
+			require.Equal(t, database.WorkspaceTransitionStart, row.Transition)
 		case deleted.ID:
 			require.Len(t, row.AgentIds, 0)
 			require.Equal(t, database.ProvisionerJobStatusSucceeded, row.JobStatus)
@@ -1603,6 +1607,8 @@ type tvArgs struct {
 	CreateWorkspace     bool
 	CreateAgent         bool
 	WorkspaceTransition database.WorkspaceTransition
+	ExtraAgents         int
+	ExtraBuilds         int
 }
 
 // createTemplateVersion is a helper function to create a version with its dependencies.
@@ -1673,14 +1679,14 @@ func createTemplateVersion(t testing.TB, db database.Store, tpl database.Templat
 			trans = args.WorkspaceTransition
 		}
 
-		buildJob := dbgen.ProvisionerJob(t, db, nil, database.ProvisionerJob{
+		latestJob := dbgen.ProvisionerJob(t, db, nil, database.ProvisionerJob{
 			Type:           database.ProvisionerJobTypeWorkspaceBuild,
 			CompletedAt:    now,
 			InitiatorID:    tpl.CreatedBy,
 			OrganizationID: tpl.OrganizationID,
 		})
-		resource := dbgen.WorkspaceResource(t, db, database.WorkspaceResource{
-			JobID: buildJob.ID,
+		latestResource := dbgen.WorkspaceResource(t, db, database.WorkspaceResource{
+			JobID: latestJob.ID,
 		})
 		dbgen.WorkspaceBuild(t, db, database.WorkspaceBuild{
 			WorkspaceID:       wrk.ID,
@@ -1688,11 +1694,36 @@ func createTemplateVersion(t testing.TB, db database.Store, tpl database.Templat
 			BuildNumber:       1,
 			Transition:        trans,
 			InitiatorID:       tpl.CreatedBy,
-			JobID:             buildJob.ID,
+			JobID:             latestJob.ID,
 		})
+		for i := 0; i < args.ExtraBuilds; i++ {
+			latestJob = dbgen.ProvisionerJob(t, db, nil, database.ProvisionerJob{
+				Type:           database.ProvisionerJobTypeWorkspaceBuild,
+				CompletedAt:    now,
+				InitiatorID:    tpl.CreatedBy,
+				OrganizationID: tpl.OrganizationID,
+			})
+			latestResource = dbgen.WorkspaceResource(t, db, database.WorkspaceResource{
+				JobID: latestJob.ID,
+			})
+			dbgen.WorkspaceBuild(t, db, database.WorkspaceBuild{
+				WorkspaceID:       wrk.ID,
+				TemplateVersionID: version.ID,
+				BuildNumber:       int32(i) + 2,
+				Transition:        trans,
+				InitiatorID:       tpl.CreatedBy,
+				JobID:             latestJob.ID,
+			})
+		}
+
 		if args.CreateAgent {
 			dbgen.WorkspaceAgent(t, db, database.WorkspaceAgent{
-				ResourceID: resource.ID,
+				ResourceID: latestResource.ID,
+			})
+		}
+		for i := 0; i < args.ExtraAgents; i++ {
+			dbgen.WorkspaceAgent(t, db, database.WorkspaceAgent{
+				ResourceID: latestResource.ID,
 			})
 		}
 	}
